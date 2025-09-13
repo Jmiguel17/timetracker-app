@@ -441,14 +441,31 @@
                 const project = projectMap.get(taskMap.get(activity.task_id)?.project_id) || 'Unknown Project';
                 const task = taskMap.get(activity.task_id)?.name || 'Unknown Task';
 
-                activityDiv.innerHTML = `
-                    <div class="timeline-activity-content">
-                        <span class="timeline-activity-project">${project}</span>
-                        <span class="timeline-activity-task">${task}</span>
-                        <span class="timeline-activity-app">${activity.app_name}</span>
-                        <span class="timeline-activity-time">${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}</span>
-                    </div>
-                `;
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'timeline-activity-content';
+
+                const projectSpan = document.createElement('span');
+                projectSpan.className = 'timeline-activity-project';
+                projectSpan.textContent = project;
+
+                const taskSpan = document.createElement('span');
+                taskSpan.className = 'timeline-activity-task';
+                taskSpan.textContent = task;
+
+                const appSpan = document.createElement('span');
+                appSpan.className = 'timeline-activity-app';
+                appSpan.textContent = activity.app_name;
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'timeline-activity-time';
+                timeSpan.textContent = `${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}`;
+
+                contentDiv.appendChild(projectSpan);
+                contentDiv.appendChild(taskSpan);
+                contentDiv.appendChild(appSpan);
+                contentDiv.appendChild(timeSpan);
+
+                activityDiv.appendChild(contentDiv);
                 timelineTrack.appendChild(activityDiv);
             });
         }
