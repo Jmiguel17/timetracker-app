@@ -1,5 +1,7 @@
-fastapi
-uvicorn[standard]
-pynput
-PyGetWindow
-python-dotenv
+fastapi==0.116.1
+uvicorn==0.35.0
+httptools==0.6.4
+uvloop==0.21.0
+pynput==1.8.1
+PyGetWindow==0.0.9
+python-dotenv==1.1.1
