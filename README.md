@@ -217,3 +217,7 @@ For further inspiration, it is helpful to study the feature sets of established 
 
 *   **Open Source Projects on GitHub:** Search for "time tracking" or "tui time tracker" to find projects like `watson`, `Timewarrior`, and others. Reviewing their features and code can provide valuable implementation insights.
 *   **Commercial Applications:** Analyze the features offered by popular commercial tools such as Toggl, Clockify, and Harvest. While their code is not public, their feature lists, documentation, and blog posts can be a great source of ideas for improving user experience and functionality.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
