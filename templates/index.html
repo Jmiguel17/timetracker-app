@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Tracker Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f8f9fa; color: #212529; }
+        header { background-color: #343a40; color: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        h1, h2 { margin: 0; }
+        h1 { font-size: 1.5rem; }
+        h2 { font-size: 1.2rem; margin-bottom: 1rem; color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 0.5rem; }
+        main { padding: 2rem; }
+        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .card { background-color: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        ul { list-style-type: none; padding: 0; margin: 0; }
+        li { padding: 0.75rem 0; border-bottom: 1px solid #e9ecef; }
+        li:last-child { border-bottom: none; }
+        .task-item { display: flex; justify-content: space-between; align-items: center; }
+        .task-name { font-weight: 500; }
+        .task-project { font-size: 0.9rem; color: #6c757d; background-color: #e9ecef; padding: 0.2rem 0.5rem; border-radius: 4px; }
+        .activity-title { color: #6c757d; font-size: 0.9rem; margin-top: 4px; }
+        .placeholder { color: #6c757d; }
+
+        /* Timeline Specific Styles */
+        .timeline-container {
+            display: flex;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-top: 2rem;
+            min-height: 600px; /* Ensure enough height for the timeline */
+        }
+
+        .timeline-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .timeline-scale {
+            width: 80px; /* Width for the hour labels */
+            padding: 1.5rem 0;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        .timeline-hour {
+            height: calc(100% / 24); /* Each hour takes 1/24th of the height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            top: -0.5em; /* Adjust for vertical centering of text */
+        }
+
+        .timeline-track {
+            flex-grow: 1;
+            position: relative;
+            padding: 1.5rem;
+            overflow-y: auto; /* Enable scrolling if activities exceed height */
+        }
+
+        .timeline-grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-top: 1px dashed #e9ecef;
+            z-index: 0;
+        }
+
+        .timeline-activity {
+            position: absolute;
+            box-sizing: border-box; /* Include padding in width/height */
+            background-color: #007bff; /* Primary color for activities */
+            color: white;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1;
+            cursor: pointer;
+        }
+
+        .timeline-activity-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline-activity-project {
+            font-weight: bold;
+        }
+
+        .timeline-activity-task {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .timeline-activity-app {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .timeline-activity-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .card canvas {
+            max-height: 300px; /* Adjust as needed */
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .export-buttons {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .export-buttons button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .export-buttons .btn-csv {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .export-buttons .btn-json {
+            background-color: #007bff;
+            color: white;
+        }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Time Tracker Dashboard</h1>
+        <div>
+            <label for="timeline-date">Select Date:</label>
+            <input type="date" id="timeline-date">
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="card">
+                <h2>Projects</h2>
+                <div id="projects-list"></div>
+            </div>
+            <div class="card">
+                <h2>Recent Tasks</h2>
+                <div id="tasks-list"></div>
+            </div>
+            <div class="card">
+                <h2>Recent Activities</h2>
+                <div id="activities-list"></div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <h2>Daily Summary</h2>
+                <canvas id="dailySummaryChart"></canvas>
+                <div id="dailySummaryText"></div>
+                <div class="export-buttons">
+                    <button class="btn-csv" onclick="exportSummary('daily', 'csv')">Export CSV</button>
+                    <button class="btn-json" onclick="exportSummary('daily', 'json')">Export JSON</button>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Weekly Summary</h2>
+                <canvas id="weeklySummaryChart"></canvas>
+                <div id="weeklySummaryText"></div>
+                <div class="export-buttons">
+                    <button class="btn-csv" onclick="exportSummary('weekly', 'csv')">Export CSV</button>
+                    <button class="btn-json" onclick="exportSummary('weekly', 'json')">Export JSON</button>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Monthly Summary</h2>
+                <canvas id="monthlySummaryChart"></canvas>
+                <div id="monthlySummaryText"></div>
+                <div class="export-buttons">
+                    <button class="btn-csv" onclick="exportSummary('monthly', 'csv')">Export CSV</button>
+                    <button class="btn-json" onclick="exportSummary('monthly', 'json')">Export JSON</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <h2>Daily Timeline</h2>
+                <div id="timeline-summary"></div>
+            </div>
+            <div class="timeline-scale" id="timeline-scale"></div>
+            <div class="timeline-track" id="timeline-track"></div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const todayString = `${year}-${month}-${day}`;
+            document.getElementById('timeline-date').value = todayString;
+            
+            fetchData();
+            fetchTimelineData(todayString);
+            fetchSummaryData(todayString);
+
+            document.getElementById('timeline-date').addEventListener('change', (event) => {
+                fetchTimelineData(event.target.value);
+                fetchSummaryData(event.target.value);
+            });
+        });
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                renderProjects(data.projects);
+                renderTasks(data.tasks, data.projects);
+                renderActivities(data.activities, data.tasks);
+            } catch (error) {
+                console.error("Failed to fetch data:", error);
+                document.getElementById('projects-list').innerHTML = '<p class="placeholder">Could not load data.</p>';
+                document.getElementById('tasks-list').innerHTML = '<p class="placeholder">Could not load data.</p>';
+                document.getElementById('activities-list').innerHTML = '<p class="placeholder">Could not load data.</p>';
+            }
+        }
+
+        async function fetchTimelineData(dateString) {
+            try {
+                const response = await fetch(`/api/activities_by_date?selected_date=${dateString}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                renderTimeline(data.activities, data.projects, data.tasks);
+            } catch (error) {
+                console.error("Failed to fetch timeline data:", error);
+                document.getElementById('timeline-track').innerHTML = '<p class="placeholder">Could not load timeline data.</p>';
+            }
+        }
+
+        async function fetchSummaryData(dateString) {
+            try {
+                const [dailyRes, weeklyRes, monthlyRes] = await Promise.all([
+                    fetch(`/api/summary/daily?selected_date=${dateString}`),
+                    fetch(`/api/summary/weekly?selected_date=${dateString}`),
+                    fetch(`/api/summary/monthly?selected_date=${dateString}`)
+                ]);
+
+                const dailySummary = await dailyRes.json();
+                const weeklySummary = await weeklyRes.json();
+                const monthlySummary = await monthlyRes.json();
+
+                renderSummaryChart('dailySummaryChart', dailySummary, 'Daily Summary');
+                renderSummaryText('dailySummaryText', dailySummary);
+
+                renderSummaryChart('weeklySummaryChart', weeklySummary, 'Weekly Summary');
+                renderSummaryText('weeklySummaryText', weeklySummary);
+
+                renderSummaryChart('monthlySummaryChart', monthlySummary, 'Monthly Summary');
+                renderSummaryText('monthlySummaryText', monthlySummary);
+
+            } catch (error) {
+                console.error("Failed to fetch summary data:", error);
+                document.getElementById('dailySummaryText').innerHTML = '<p class="placeholder">Could not load daily summary.</p>';
+                document.getElementById('weeklySummaryText').innerHTML = '<p class="placeholder">Could not load weekly summary.</p>';
+                document.getElementById('monthlySummaryText').innerHTML = '<p class="placeholder">Could not load monthly summary.</p>';
+            }
+        }
+
+        function renderProjects(projects) {
+            const container = document.getElementById('projects-list');
+            if (!projects || projects.length === 0) {
+                container.innerHTML = '<p class="placeholder">No projects found.</p>';
+                return;
+            }
+            const projectList = document.createElement('ul');
+            projects.forEach(project => {
+                const li = document.createElement('li');
+                li.textContent = project.name;
+                projectList.appendChild(li);
+            });
+            container.innerHTML = '';
+            container.appendChild(projectList);
+        }
+
+        function renderTasks(tasks, projects) {
+            const container = document.getElementById('tasks-list');
+            if (!tasks || tasks.length === 0) {
+                container.innerHTML = '<p class="placeholder">No tasks found.</p>';
+                return;
+            }
+            const projectMap = new Map(projects.map(p => [p.id, p.name]));
+            const taskList = document.createElement('ul');
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.classList.add('task-item');
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.classList.add('task-name');
+                nameSpan.textContent = task.name;
+
+                const projectSpan = document.createElement('span');
+                projectSpan.classList.add('task-project');
+                projectSpan.textContent = projectMap.get(task.project_id) || 'Unknown Project';
+
+                li.appendChild(nameSpan);
+                li.appendChild(projectSpan);
+                taskList.appendChild(li);
+            });
+            container.innerHTML = '';
+            container.appendChild(taskList);
+        }
+
+        function renderActivities(activities, tasks) {
+            const container = document.getElementById('activities-list');
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<p class="placeholder">No recent activity tracked.</p>';
+                return;
+            }
+            const taskMap = new Map(tasks.map(t => [t.id, t.name]));
+            const activityList = document.createElement('ul');
+            activities.forEach(activity => {
+                const li = document.createElement('li');
+                const appName = document.createElement('div');
+                appName.textContent = activity.app_name;
+
+                const title = document.createElement('div');
+                title.classList.add('activity-title');
+                title.textContent = `Task: ${taskMap.get(activity.task_id) || 'Unknown'}`;
+
+                li.appendChild(appName);
+                li.appendChild(title);
+                activityList.appendChild(li);
+            });
+            container.innerHTML = '';
+            container.appendChild(activityList);
+        }
+
+        function renderTimeline(activities, projects, tasks) {
+            const timelineTrack = document.getElementById('timeline-track');
+            timelineTrack.innerHTML = ''; // Clear previous timeline
+
+            const timelineScale = document.getElementById('timeline-scale');
+            timelineScale.innerHTML = '';
+
+            const projectMap = new Map(projects.map(p => [p.id, p.name]));
+            const taskMap = new Map(tasks.map(t => [t.id, t.name]));
+
+            // Create hourly scale
+            for (let i = 0; i < 24; i++) {
+                const hourDiv = document.createElement('div');
+                hourDiv.classList.add('timeline-hour');
+                hourDiv.textContent = `${String(i).padStart(2, '0')}:00`;
+                timelineScale.appendChild(hourDiv);
+
+                const gridLine = document.createElement('div');
+                gridLine.classList.add('timeline-grid-line');
+                gridLine.style.top = `${(i / 24) * 100}%`;
+                timelineTrack.appendChild(gridLine);
+            }
+
+            if (!activities || activities.length === 0) {
+                timelineTrack.innerHTML = '<p class="placeholder">No activities for this date.</p>';
+                return;
+            }
+
+            // Sort activities by start time to process them chronologically
+            activities.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+            const totalDayMinutes = 24 * 60;
+            const MAX_LANES = 4; // Define maximum number of horizontal lanes
+            const laneWidth = 100 / MAX_LANES; // Percentage width for each lane
+            const lanes = Array(MAX_LANES).fill(0); // Stores the end time (in minutes from start of day) of the last activity in each lane
+
+            activities.forEach(activity => {
+                const start = new Date(activity.start_time);
+                const end = new Date(activity.end_time);
+
+                const activityStartMinutes = (start.getHours() * 60) + start.getMinutes() + (start.getSeconds() / 60);
+                const activityEndMinutes = (end.getHours() * 60) + end.getMinutes() + (end.getSeconds() / 60);
+                const durationMinutes = activityEndMinutes - activityStartMinutes;
+
+                const topPercentage = (activityStartMinutes / totalDayMinutes) * 100;
+                const heightPercentage = (durationMinutes / totalDayMinutes) * 100;
+
+                // Find the first available lane
+                let assignedLane = 0;
+                for (let i = 0; i < MAX_LANES; i++) {
+                    // Check if the current activity can fit in this lane without overlapping
+                    // We add a small buffer (e.g., 1 minute) to avoid activities touching exactly
+                    if (activityStartMinutes >= lanes[i] + 1) {
+                        assignedLane = i;
+                        break;
+                    }
+                    // If all lanes are occupied up to this point, assign to the last one
+                    // This means it will overlap if MAX_LANES is not enough
+                    if (i === MAX_LANES - 1) {
+                        assignedLane = MAX_LANES - 1;
+                    }
+                }
+
+                // Update the end time for the assigned lane
+                lanes[assignedLane] = activityEndMinutes;
+
+                const activityDiv = document.createElement('div');
+                activityDiv.classList.add('timeline-activity');
+                activityDiv.style.top = `${topPercentage}%`;
+                activityDiv.style.height = `${heightPercentage}%`;
+                activityDiv.style.left = `${assignedLane * laneWidth}%`; // Position based on lane
+                activityDiv.style.width = `${laneWidth}%`; // Set width for the lane
+
+                const project = projectMap.get(taskMap.get(activity.task_id)?.project_id) || 'Unknown Project';
+                const task = taskMap.get(activity.task_id)?.name || 'Unknown Task';
+
+                activityDiv.innerHTML = `
+                    <div class="timeline-activity-content">
+                        <span class="timeline-activity-project">${project}</span>
+                        <span class="timeline-activity-task">${task}</span>
+                        <span class="timeline-activity-app">${activity.app_name}</span>
+                        <span class="timeline-activity-time">${start.toLocaleTimeString()} - ${end.toLocaleTimeString()}</span>
+                    </div>
+                `;
+                timelineTrack.appendChild(activityDiv);
+            });
+        }
+
+        let dailyChart, weeklyChart, monthlyChart;
+
+        function renderSummaryChart(canvasId, summaryData, title) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window[canvasId] instanceof Chart) {
+                window[canvasId].destroy();
+            }
+
+            const projectLabels = Object.keys(summaryData);
+            const projectDurations = projectLabels.map(project => summaryData[project].total_duration / 3600); // Convert seconds to hours
+
+            window[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: projectLabels,
+                    datasets: [{
+                        label: 'Hours',
+                        data: projectDurations,
+                        backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: title
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Hours'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderSummaryText(elementId, summaryData) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+
+            if (Object.keys(summaryData).length === 0) {
+                container.innerHTML = '<p class="placeholder">No data available.</p>';
+                return;
+            }
+
+            const ul = document.createElement('ul');
+            for (const project in summaryData) {
+                const totalDurationHours = (summaryData[project].total_duration / 3600).toFixed(2);
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${project}</strong>: ${totalDurationHours} hours`;
+                
+                const taskUl = document.createElement('ul');
+                for (const task in summaryData[project].tasks) {
+                    const taskDurationHours = (summaryData[project].tasks[task] / 3600).toFixed(2);
+                    const taskLi = document.createElement('li');
+                    taskLi.style.fontSize = '0.9em';
+                    taskLi.innerHTML = `${task}: ${taskDurationHours} hours`;
+                    taskUl.appendChild(taskLi);
+                }
+                li.appendChild(taskUl);
+                ul.appendChild(li);
+            }
+            container.appendChild(ul);
+        }
+
+        async function exportSummary(summaryType, format) {
+            const selectedDate = document.getElementById('timeline-date').value;
+            const url = `/api/reports/summary?summary_type=${summaryType}&selected_date=${selectedDate}&format=${format}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                if (format === 'json') {
+                    const data = await response.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `${summaryType}_summary_${selectedDate}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+                } else if (format === 'csv') {
+                    const blob = await response.blob();
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `${summaryType}_summary_${selectedDate}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+                }
+            } catch (error) {
+                console.error(`Failed to export ${summaryType} summary as ${format}:`, error);
+                alert(`Failed to export ${summaryType} summary as ${format}. Check console for details.`);
+            }
+        }
+
+    </script>
+
+</body>
+</html>
