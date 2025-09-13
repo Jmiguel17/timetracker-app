@@ -30,15 +30,11 @@ The Time Tracker is a dual-component application designed to help you monitor an
 
 Follow these steps to set up and run the Time Tracker application:
 
-1.  **Clone the Repository (if applicable):**
-    If you received this project as a repository, clone it to your local machine:
+1.  **Clone the Repository:**
+    Clone the repository to your local machine:
     ```bash
-    git clone <repository_url>
-    cd timetracker
-    ```
-    If you have the files locally, navigate to the `timetracker` directory:
-    ```bash
-    cd /path/to/your/timetracker/directory
+    git clone https://github.com/Jmiguel17/timetracker-app.git
+    cd timetracker-app
     ```
 
 2.  **Create a Python Virtual Environment:**
