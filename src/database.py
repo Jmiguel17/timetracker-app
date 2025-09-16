@@ -31,7 +31,7 @@ def create_tables(overwrite=False):
         )
         """)
 
-        # Tasks table (new)
+        # Tasks table (modified)
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,11 +39,12 @@ def create_tables(overwrite=False):
             name TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
             FOREIGN KEY (project_id) REFERENCES projects (id)
         )
         """)
 
-        # Activities table (modified)
+        # Activities table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS activities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +57,7 @@ def create_tables(overwrite=False):
         )
         """)
 
-        # Rules table (new)
+        # Rules table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,10 +105,17 @@ def get_or_create_project(name):
             return cursor.lastrowid
 
 def get_active_tasks_for_project(project_id):
-    """Gets all tasks for a project that have not ended."""
+    """Gets all active tasks for a project."""
     with closing(get_db_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tasks WHERE project_id = ? AND end_time IS NULL ORDER BY start_time DESC", (project_id,))
+        cursor.execute("SELECT * FROM tasks WHERE project_id = ? AND status = 'active' ORDER BY start_time DESC", (project_id,))
+        return cursor.fetchall()
+
+def get_completed_tasks_for_project(project_id):
+    """Gets all completed tasks for a project."""
+    with closing(get_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tasks WHERE project_id = ? AND status = 'completed' ORDER BY end_time DESC", (project_id,))
         return cursor.fetchall()
 
 def create_task(project_id, name):
@@ -116,18 +124,25 @@ def create_task(project_id, name):
     with closing(get_db_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO tasks (project_id, name, start_time) VALUES (?, ?, ?)",
+            "INSERT INTO tasks (project_id, name, start_time, status) VALUES (?, ?, ?, 'active')",
             (project_id, name, now_iso)
         )
         conn.commit()
         return cursor.lastrowid
 
-def end_task(task_id):
-    """Sets the end time for a specific task."""
+def complete_task(task_id):
+    """Marks a task as completed and sets the end time."""
     now_iso = datetime.now().isoformat()
     with closing(get_db_connection()) as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE tasks SET end_time = ? WHERE id = ?", (now_iso, task_id))
+        cursor.execute("UPDATE tasks SET end_time = ?, status = 'completed' WHERE id = ?", (now_iso, task_id))
+        conn.commit()
+
+def reopen_task(task_id):
+    """Marks a task as active and removes the end time."""
+    with closing(get_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tasks SET end_time = NULL, status = 'active' WHERE id = ?", (task_id,))
         conn.commit()
 
 def add_activity(task_id, app_name, window_title, start_time, end_time):

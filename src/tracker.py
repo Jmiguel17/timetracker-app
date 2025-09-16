@@ -64,6 +64,53 @@ def prompt_for_project():
                 # If it's not a number, treat it as a new project name
                 return db.get_or_create_project(choice)
 
+def manage_tasks(project_id):
+    """Handles the task management menu for completing and reopening tasks."""
+    while True:
+        project_name = db.get_project_name_by_id(project_id)
+        print(f"\n--- Manage Tasks for '{project_name}' ---")
+        print("1. Complete an active task")
+        print("2. Reopen a completed task")
+        print("3. Back to task selection")
+        choice = input("> ")
+
+        if choice == '1':
+            tasks = db.get_active_tasks_for_project(project_id)
+            if not tasks:
+                print("No active tasks to complete.")
+                continue
+            print("\nSelect a task to complete:")
+            for i, task in enumerate(tasks):
+                print(f"{i + 1}. {task['name']}")
+            task_choice = input("> ")
+            try:
+                task_to_complete = tasks[int(task_choice) - 1]
+                db.complete_task(task_to_complete['id'])
+                print(f"Task '{task_to_complete['name']}' marked as completed.")
+            except (ValueError, IndexError):
+                print("Invalid selection.")
+        
+        elif choice == '2':
+            tasks = db.get_completed_tasks_for_project(project_id)
+            if not tasks:
+                print("No completed tasks to reopen.")
+                continue
+            print("\nSelect a task to reopen:")
+            for i, task in enumerate(tasks):
+                print(f"{i + 1}. {task['name']}")
+            task_choice = input("> ")
+            try:
+                task_to_reopen = tasks[int(task_choice) - 1]
+                db.reopen_task(task_to_reopen['id'])
+                print(f"Task '{task_to_reopen['name']}' has been reopened.")
+            except (ValueError, IndexError):
+                print("Invalid selection.")
+
+        elif choice == '3':
+            return None # Go back to the previous menu
+        else:
+            print("Invalid choice.")
+
 def prompt_for_task(project_id):
     """Asks the user to select or create a task for the given project."""
     global test_task_call_count
@@ -85,8 +132,12 @@ def prompt_for_task(project_id):
             for i, task in enumerate(tasks):
                 print(f"{i + 1}. {task['name']}")
         
-        print("\nEnter task number to select, or type a new task name:")
+        print("\nEnter task number to select, type a new task name, or 'm' to manage tasks:")
         choice = input("> ")
+
+        if choice.lower() == 'm':
+            manage_tasks(project_id)
+            continue # After managing tasks, show the task list again
 
         try:
             choice_num = int(choice)
@@ -95,7 +146,10 @@ def prompt_for_task(project_id):
             else:
                 print("Invalid number. Please try again.")
         except ValueError:
-            return db.create_task(project_id, choice)
+            if choice.strip(): # Ensure it's not an empty string
+                return db.create_task(project_id, choice)
+            else:
+                print("Invalid input.")
 
 def handle_user_prompt(reason):
     """Guides the user through selecting their current work."""
@@ -131,7 +185,7 @@ def handle_user_prompt(reason):
             new_task_id = prompt_for_task(new_project_id)
             break
 
-    # Log current activity and end previous task if project or task has changed
+    # Log current activity if the task or project has changed
     if (new_task_id != current_task_id or new_project_id != current_project_id):
         if current_activity:
             db.add_activity(
@@ -142,8 +196,6 @@ def handle_user_prompt(reason):
                 datetime.now()
             )
             current_activity = None # Reset activity
-        if current_task_id and current_task_id != new_task_id:
-            db.end_task(current_task_id)
 
     current_project_id = new_project_id
     current_task_id = new_task_id
@@ -330,8 +382,6 @@ def start_tracking():
 
     # Graceful shutdown logic
     print("\nStopping tracker...")
-    if current_task_id:
-        db.end_task(current_task_id)
     if current_activity and not is_afk:
         db.add_activity(
             current_task_id,
